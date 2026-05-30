@@ -1,0 +1,92 @@
+pipeline {
+    agent any
+    
+    triggers {
+        // Scheduled every Saturday at 2:05 PM
+        cron('5 14 * * 6') 
+    }
+
+    options {
+        // Resource optimizations for Single Board Computer constraints
+        disableConcurrentBuilds()
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+    }
+
+    stages {
+        stage('1. Check & Enrich Metadata') {
+            steps {
+                echo 'Checking local workspace for pending media queue entries...'
+                script {
+                    // Execute metadata pre-processing using the container name and generic working directory
+                    int statusCode = sh(
+                        script: "docker exec -w /app youtube-uploader python enrich_queue.py --input ./data/general_queue.json --output ./data/general_queue.json --prompt-file ./ollama/system_prompt.txt --ollama ollama-service:11434 --model gemma2:9b",
+                        returnStatus: true
+                    )
+                    
+                    if (statusCode == 99) {
+                        echo '[JENKINS INFO] All records processed. Skipping upload stage.'
+                        env.SKIP_UPLOAD = 'true'
+                    } else if (statusCode != 0) {
+                        error('The Python metadata engine encountered a fatal runtime exception.')
+                    } else {
+                        env.SKIP_UPLOAD = 'false'
+                    }
+                }
+            }
+        }
+
+        stage('2. YouTube API Upload') {
+            when { 
+                environment name: 'SKIP_UPLOAD', value: 'false' 
+            }
+            steps {
+                echo 'Initializing batch upload routine...'
+                script {
+                    String rawLog = sh(
+                        script: "docker exec -w /app youtube-uploader python batch_uploader.py --file ./data/general_queue.json",
+                        returnStdout: true
+                    ).trim()
+                    
+                    echo rawLog 
+                    
+                    def matcher = rawLog =~ /(?s)(QUEUE SUMMARY REPORT.*)/
+                    if (matcher.find()) {
+                        env.UPLOAD_SUMMARY = matcher[0][1]
+                    } else {
+                        env.UPLOAD_SUMMARY = "Upload sequence finished, but the diagnostic summary report block could not be parsed."
+                    }
+                }
+            }
+        }
+    }
+    
+    post {
+        always {
+            script {
+                // These environment variables will be populated by the installer / .env file
+                def destinationEmail = "${env.NOTIFICATION_EMAIL}"
+                def buildStatus = currentBuild.result ?: 'SUCCESS'
+                
+                def mailSubject = ""
+                def mailBody = ""
+                
+                if (env.SKIP_UPLOAD == 'true') {
+                    mailSubject = "Jenkins: YouTube Automation - No Uploads Required (Success)"
+                    mailBody = "Automation state: Idle. The local queue ledger contains zero pending assets."
+                } else if (env.UPLOAD_SUMMARY) {
+                    mailSubject = "Jenkins: YouTube Automation Pipeline Status - ${buildStatus}"
+                    mailBody = "Find below the automation routine final summary report:\n\n${env.UPLOAD_SUMMARY}\n\nReview upstream logs at: ${env.BUILD_URL}"
+                } else {
+                    mailSubject = "Jenkins: YouTube Automation Pipeline - Job Failure Notification"
+                    mailBody = "The pipeline lifecycle terminated prematurely with status [${buildStatus}]. Diagnostic summary unavailable."
+                }
+
+                echo "Invoking isolated Python SMTP notification module..."
+
+                withCredentials([string(credentialsId: 'gmail-app-password', variable: 'GMAIL_PWD')]) {
+                    sh "docker exec -w /app youtube-uploader python send_email_summary.py --to_email '${destinationEmail}' --subject '${mailSubject}' --password '${GMAIL_PWD}' --body '${mailBody}'"
+                }
+            }
+        }
+    }
+}
