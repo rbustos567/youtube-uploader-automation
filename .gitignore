@@ -1,0 +1,10 @@
+# ignore dynamic deployment data
+data/
+jenkins_home/
+*.log
+__pycache__/
+.env
+
+# ignore local google API secrets and tokens
+config/client_secrets.json
+config/oauth2_token.json
