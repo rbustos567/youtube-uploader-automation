@@ -139,7 +139,7 @@ fi
 
 
 # ==============================================================================
-# 4. MICROSERVICES CONTAINER MESH LAUNCH (DEPLOYMENT)
+# 4. MICROSERVICES CONTAINER MESH LAUNCH & LLM PROVISIONING
 # ==============================================================================
 echo ""
 echo "[4/4] Launching containerized microservices layer..."
@@ -148,12 +148,39 @@ echo "Building custom engine images and initializing isolated Docker network top
 docker compose up -d --build
 
 if [ $? -eq 0 ]; then
+    echo "[OK] Container mesh generated successfully."
+    
+    # Dynamic LLM provisioning stage based on .env configuration
+    echo "Verifying local LLM availability inside Ollama container..."
+    echo "[INFO] Target model configured: ${OLLAMA_MODEL_NAME}"
+    
+    # Give the Ollama service daemon a brief moment to warm up if it just started
+    sleep 3
+    
+    # Check if the requested model is already present in the container storage
+    if docker exec ollama-service ollama list | grep -q "${OLLAMA_MODEL_NAME}"; then
+        echo "[OK] Model '${OLLAMA_MODEL_NAME}' is already cached and ready to use."
+    else
+        echo "[INFO] Model '${OLLAMA_MODEL_NAME}' not found locally. Initializing automated pull sequence..."
+        echo "Please wait, downloading model weights inside the container (this may take several minutes depending on your network)..."
+        
+        # Execute the pull command directly inside the active container
+        docker exec -it ollama-service ollama pull "${OLLAMA_MODEL_NAME}"
+        
+        if [ $? -eq 0 ]; then
+            echo "[OK] Model '${OLLAMA_MODEL_NAME}' downloaded and provisioned successfully."
+        else
+            echo "[WARNING] Failed to pull model '${OLLAMA_MODEL_NAME}'. Please check your network connection or verify the model name."
+        fi
+    fi
+
     echo ""
     echo "===================================================="
     echo "   DEPLOYMENT COMPLETED SUCCESSFULLY!"
     echo "===================================================="
     echo "Jenkins automation server running at: http://localhost:8080"
     echo "Notification metrics pipeline targeted to: ${NOTIFICATION_EMAIL}"
+    echo "AI Automation Engine backed by: Ollama (${OLLAMA_MODEL_NAME})"
     echo "All workflow logs are persistent inside: ./jenkins_home and ./data"
 else
     echo "[FATAL] Docker Compose failed to spin up the container network orchestration layer."
