@@ -37,7 +37,7 @@ services:
       - "8080:8080"
       - "50000:50000"
     environment:
-      - TZ=America/Monterrey
+      - TZ=${SYSTEM_TIMEZONE}
       - NOTIFICATION_EMAIL=${NOTIFICATION_EMAIL}
     volumes:
       - jenkins_data:/var/jenkins_home
