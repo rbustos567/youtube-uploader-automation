@@ -1,12 +1,74 @@
 #!/bin/bash
 
 echo "===================================================="
-echo "   YOUTUBE AUTOMATION SYSTEM - ARCHITECTURE INSTALLER "
+echo " YOUTUBE AUTOMATION SYSTEM - ARCHITECTURE INSTALLER "
 echo "===================================================="
 
-# 1. ENVIRONMENT DETECTION & PREREQUISITES VERIFICATION
+# ==============================================================================
+# 1. LOCAL ENVIRONMENT MANAGEMENT & STRICT VALIDATION (FAIL-FAST)
+# ==============================================================================
 echo ""
-echo "[1/4] Verifying and installing system prerequisites..."
+echo "[1/4] Setting up and validating environment configuration..."
+
+if [ ! -f .env ]; then
+    echo "[INFO] No .env file detected. Generating from template..."
+    if [ -f .env.example ]; then
+        cp .env.example .env
+        
+        # Inject dynamic host project context absolute path
+        CURRENT_WORKSPACE_DIR=$(pwd)
+        sed -i "s|DEPLOY_WORKSPACE_PATH=|DEPLOY_WORKSPACE_PATH=${CURRENT_WORKSPACE_DIR}|g" .env
+        
+        echo "Please configure your interactive variables now:"
+        read -p "Enter your notification target email: " TARGET_USER_EMAIL
+        sed -i "s|NOTIFICATION_EMAIL=user@example.com|NOTIFICATION_EMAIL=${TARGET_USER_EMAIL}|g" .env
+        
+        echo "[SUCCESS] Localized .env file generated cleanly."
+    else
+        echo "[ERROR] Critical configuration template '.env.example' missing from repository."
+        exit 1
+    fi
+else
+    echo "[OK] Existing .env file detected. Evaluating variable criteria..."
+fi
+
+# Load environmental values safely into active subshell memory context
+export $(grep -v '^#' .env | xargs)
+
+# Assertion framework to guarantee execution correctness before deployment
+MISSING_VARS=0
+
+validate_variable() {
+    local VAR_NAME=$1
+    local VAR_VALUE=${!VAR_NAME}
+    
+    if [ -z "$VAR_VALUE" ]; then
+        echo "[ERROR] Mandatory configuration variable '${VAR_NAME}' is empty or undefined inside .env"
+        MISSING_VARS=$((MISSING_VARS + 1))
+    fi
+}
+
+# Run assertion suite across target architecture keys
+validate_variable "NOTIFICATION_EMAIL"
+validate_variable "OLLAMA_HOST_URL"
+validate_variable "OLLAMA_MODEL_NAME"
+validate_variable "SYSTEM_TIMEZONE"
+validate_variable "PIPELINE_CRON_SCHEDULE"
+validate_variable "DEPLOY_WORKSPACE_PATH"
+
+if [ "$MISSING_VARS" -ne 0 ]; then
+    echo "[FATAL] Environment validation failed with ${MISSING_VARS} unresolved errors. Aborting installer."
+    exit 1
+else
+    echo "[OK] All required environment criteria validated successfully."
+fi
+
+
+# ==============================================================================
+# 2. ENVIRONMENT DETECTION & PREREQUISITES VERIFICATION
+# ==============================================================================
+echo ""
+echo "[2/4] Verifying and installing system prerequisites..."
 
 # Validate execution privileges
 if [ "$EUID" -ne 0 ]; then
@@ -23,7 +85,7 @@ elif command -v dnf &> /dev/null; then
 elif command -v yum &> /dev/null; then
     PKG_MANAGER="yum"
 else
-    echo "[FATAL] Unsupported Linux distribution. No compatible package manager found (apt|dnf|yum)."
+    echo "[FATAL] Unsupported Linux distribution. No compatible package manager found (APT/DNF/YUM)."
     exit 1
 fi
 
@@ -49,7 +111,6 @@ install_docker_native() {
             echo "[INFO] Initializing official Docker installation via ${PKG_MANAGER^^}..."
             $PKG_MANAGER install -y dnf-plugins-core
             
-            # Setup official stable repository for RedHat-based ecosystems
             dnf config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo &> /dev/null || \
             yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo &> /dev/null
             
@@ -75,8 +136,8 @@ if ! docker compose version &> /dev/null; then
             apt-get install -y docker-compose-plugin
             ;;
         dnf|yum)
-            $PKG_MANAGER update -y
-            $PKG_MANAGER install -y docker-compose-plugin
+            $$PKG_MANAGER update -y
+            $$PKG_MANAGER install -y docker-compose-plugin
             ;;
     esac
     echo "[OK] Docker Compose V2 plugin integrated successfully."
@@ -90,48 +151,14 @@ systemctl start docker
 
 
 # ==============================================================================
-# 2. LOCAL ENVIRONMENT MANAGEMENT (.env)
-# ==============================================================================
-echo ""
-echo "[2/4] Setting up localized environment variables..."
-
-if [ ! -f .env ]; then
-    echo "[INFO] No .env file detected. Generating from template..."
-    if [ -f .env.example ]; then
-        cp .env.example .env
-        
-        # Inject dynamic host project context absolute path
-        CURRENT_WORKSPACE_DIR=$(pwd)
-        sed -i "s|DEPLOY_WORKSPACE_PATH=|DEPLOY_WORKSPACE_PATH=${CURRENT_WORKSPACE_DIR}|g" .env
-        
-        echo "Please configure your interactive variables now:"
-        read -p "Enter your notification target email: " TARGET_USER_EMAIL
-        sed -i "s|NOTIFICATION_EMAIL=user@example.com|NOTIFICATION_EMAIL=${TARGET_USER_EMAIL}|g" .env
-        
-        echo "[SUCCESS] Localized .env file generated cleanly."
-    else
-        echo "[ERROR] Critical configuration template '.env.example' missing from repository repository."
-        exit 1
-    fi
-else
-    echo "[OK] Existing .env file detected. Retaining current infrastructure runtime values."
-fi
-
-# Export configuration properties to shell context execution environment
-export $(grep -v '^#' .env | xargs)
-
-
-# ==============================================================================
 # 3. LOCAL FILESYSTEM STRUCTURE VERIFICATION
 # ==============================================================================
 echo ""
 echo "[3/4] Ensuring local filesystem integrity..."
 
-# Enforce target directory architecture generation for volume bindings
 mkdir -p data config jenkins_home
 echo "[OK] Data, Config, and Jenkins directory trees verified."
 
-# Run critical security validation for required Google API OAuth2 secrets
 if [ ! -f config/client_secrets.json ]; then
     echo "[WARNING] 'config/client_secrets.json' target file not found."
     echo "Remember to place your Google Cloud API OAuth2 credentials inside the './config' folder before launching automation jobs."
@@ -150,27 +177,23 @@ docker compose up -d --build
 if [ $? -eq 0 ]; then
     echo "[OK] Container mesh generated successfully."
     
-    # Dynamic LLM provisioning stage based on .env configuration
     echo "Verifying local LLM availability inside Ollama container..."
     echo "[INFO] Target model configured: ${OLLAMA_MODEL_NAME}"
     
-    # Give the Ollama service daemon a brief moment to warm up if it just started
     sleep 3
     
-    # Check if the requested model is already present in the container storage
     if docker exec ollama-service ollama list | grep -q "${OLLAMA_MODEL_NAME}"; then
         echo "[OK] Model '${OLLAMA_MODEL_NAME}' is already cached and ready to use."
     else
         echo "[INFO] Model '${OLLAMA_MODEL_NAME}' not found locally. Initializing automated pull sequence..."
-        echo "Please wait, downloading model weights inside the container (this may take several minutes depending on your network)..."
+        echo "Please wait, downloading model weights inside the container..."
         
-        # Execute the pull command directly inside the active container
         docker exec -it ollama-service ollama pull "${OLLAMA_MODEL_NAME}"
         
         if [ $? -eq 0 ]; then
             echo "[OK] Model '${OLLAMA_MODEL_NAME}' downloaded and provisioned successfully."
         else
-            echo "[WARNING] Failed to pull model '${OLLAMA_MODEL_NAME}'. Please check your network connection or verify the model name."
+            echo "[WARNING] Failed to pull model '${OLLAMA_MODEL_NAME}'."
         fi
     fi
 

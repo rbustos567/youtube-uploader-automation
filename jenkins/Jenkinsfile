@@ -1,10 +1,12 @@
 pipeline {
     agent any
-    
-    triggers {
-        // Scheduled every Saturday at 2:05 PM
-        cron('5 14 * * 6') 
-    }
+
+    // Evaluate and inject the cron trigger dynamically inside the properties initialization block
+    properties([
+        pipelineTriggers([
+            cron(env.PIPELINE_CRON_SCHEDULE)
+        ])
+    ])
 
     options {
         // Resource optimizations for Single Board Computer constraints
