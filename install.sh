@@ -4,7 +4,7 @@
 set -e
 
 echo "===================================================="
-echo "   YOUTUBE AUTOMATION SYSTEM - ARCHITECTURE INSTALLER"
+echo "    YOUTUBE AUTOMATION SYSTEM - ARCHITECTURE INSTALLER"
 echo "===================================================="
 
 # ---------------------------------------------------------
@@ -29,7 +29,7 @@ fi
 if [ ! -f ".env" ]; then
     echo "[INFO] No .env file detected. Generating from template..."
     cp .env.example .env
-    
+
     # Dynamic deployment path discovery via PWD
     current_dir=$(pwd)
     if grep -q "DEPLOY_WORKSPACE_PATH=" .env; then
@@ -41,6 +41,46 @@ if [ ! -f ".env" ]; then
 else
     echo "[OK] Existing .env file detected. Evaluating variable criteria..."
 fi
+
+# ---------------------------------------------------------
+# RESTORED BLOCK: Interactive User Data Capture
+# ---------------------------------------------------------
+echo ""
+echo ">>> CREDENTIALS & NOTIFICATIONS CONFIGURATION <<<"
+echo "Please enter the required details to populate your .env configuration:"
+
+# 1. Capture Notification Email
+read -p "Enter notification email address: " input_email
+while [ -z "$input_email" ]; do
+    echo "[WARN] Notification email cannot be empty."
+    read -p "Enter notification email address: " input_email
+done
+
+# 2. Capture Jenkins Initial Admin User
+read -p "Enter Jenkins Initial Admin Username: " input_user
+while [ -z "$input_user" ]; do
+    echo "[WARN] Username cannot be empty."
+    read -p "Enter Jenkins Initial Admin Username: " input_user
+done
+
+# 3. Capture Jenkins Initial Admin Password (masking characters for security)
+unset input_password
+prompt="Enter Jenkins Initial Admin Password: "
+while [ -z "$input_password" ]; do
+    read -s -p "$prompt" input_password
+    echo "" # Append a newline after secure text input hidden state
+    if [ -z "$input_password" ]; then
+        echo "[WARN] Password cannot be empty."
+    fi
+done
+
+# Surgical variable replacement inside the local execution .env file via sed
+sed -i "s|NOTIFICATION_EMAIL=.*|NOTIFICATION_EMAIL=${input_email}|" .env
+sed -i "s|JENKINS_INITIAL_ADMIN_USER=.*|JENKINS_INITIAL_ADMIN_USER=${input_user}|" .env
+sed -i "s|JENKINS_INITIAL_ADMIN_PASSWORD=.*|JENKINS_INITIAL_ADMIN_PASSWORD=${input_password}|" .env
+
+echo "[OK] Configuration secrets successfully injected into .env file."
+echo "---------------------------------------------------------"
 
 # ---------------------------------------------------------
 # [2/4] Directory Infrastructure & Runtime Dependencies
@@ -129,7 +169,7 @@ if docker exec "${ollama_container}" ollama list | grep -q "${target_model}"; th
     echo "[OK] Model '${target_model}' is already cached and ready to use."
 else
     echo "[INFO] Model '${target_model}' not found locally inside container. Initializing pull sequence..."
-    
+
     if ! docker exec -it "${ollama_container}" ollama pull "${target_model}"; then
         echo "[ERROR] Failed to pull model weights for '${target_model}'."
         echo "[WARN] Continuing setup, but you must manually trigger 'ollama pull ${target_model}' inside the container."
@@ -149,4 +189,3 @@ echo " Jenkins automation server running at: http://localhost:9090"
 echo " Notification metrics pipeline targeted to: ${NOTIFICATION_EMAIL}"
 echo " AI Automation Engine backed by: Ollama (${target_model})"
 echo " All workflow logs are persistent inside ./data/jenkins_home and ./data/"
-echo "===================================================="
