@@ -1,0 +1,28 @@
+[
+  {
+    "id": 1,
+    "action": "upload",
+    "token": "token_upload_update.json",
+    "videoFile": "/app/clouds_timelapse_1.mp4",
+    "raw_context": "A timelapse video shot in 4K, which shows a cloudy day with gray colors and suddenly it cleans out and shows a blue sky with a few rays from the sun. This is taking place in the afternoon.",
+    "tags": "4k, test3",
+    "status": "unlisted",
+    "pubDate": null,
+    "location": null,
+    "relatedVideo": null,
+    "executionStatus": "pending"
+  },
+  {
+    "id": 2,
+    "action": "upload",
+    "token": "token_upload_update.json",
+    "videoFile": "/app/clouds_timelapse_2.mp4",
+    "raw_context": "A timelapse video shot in 4K, which shows a cloudy day in the afternoon, showing beautiful gray with orange colors. At the end it cleans out and shows only orange colors and then blue dark colors",
+    "tags": "4k, test2",
+    "status": "unlisted",
+    "pubDate": null,
+    "location": null,
+    "relatedVideo": null,
+    "executionStatus": "pending"
+  }
+]

@@ -1,6 +1,3 @@
-# Local persistent automation folders
-data/
-
 # Secure Appliation Credentials, Environments & Tokens
 config/token.json
 config/client_secrets.json
