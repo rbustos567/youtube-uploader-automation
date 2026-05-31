@@ -1,0 +1,33 @@
+jenkins:
+  agentProtocols:
+    - "JNLP4-connect"
+  securityRealm:
+    local:
+      allowsSignup: false
+      enableCaptcha: false
+      users:
+        - id: "${JENKINS_INITIAL_ADMIN_USER}"
+          password: "${JENKINS_INITIAL_ADMIN_PASSWORD}"
+
+unclassified:
+  location:
+    url: "http://localhost:8080/"
+
+# GitOps Engine: This block provisions your pipeline job automatically on startup
+jobs:
+  - script: >
+      pipelineJob("${JENKINS_PROJECT_NAME}") {
+        definition {
+          cpsScm {
+            scm {
+              git {
+                remote { 
+                  url("${JENKINS_GITHUB_REPO_URL}") 
+                }
+                branches('main')
+              }
+            }
+            scriptPath('jenkins/Jenkinsfile')
+          }
+        }
+      }

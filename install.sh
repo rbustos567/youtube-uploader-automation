@@ -70,7 +70,10 @@ validate_variable "SYSTEM_TIMEZONE"
 validate_variable "PIPELINE_CRON_SCHEDULE"
 validate_variable "JENKINS_INITIAL_ADMIN_USER"
 validate_variable "JENKINS_INITIAL_ADMIN_PASSWORD"
+validate_variable "JENKINS_PROJECT_NAME"
+validate_variable "JENKINS_GITHUB_REPO_URL"
 validate_variable "DEPLOY_WORKSPACE_PATH"
+
 
 if [ "$MISSING_VARS" -ne 0 ]; then
     echo "[FATAL] Environment validation failed with ${MISSING_VARS} unresolved errors. Aborting installer."

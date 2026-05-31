@@ -9,5 +9,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     docker.io \
     && rm -rf /var/lib/apt/lists/*
 
-# Drop privileges back to the standard jenkins user context for secure runtime execution
+# Drop privileges back to the standard jenkins user context
 USER jenkins
+
+# Automated Plugin Provisioning for GitOps (JCasC & Job DSL)
+RUN jenkins-plugin-cli --plugins configuration-as-code job-dsl
