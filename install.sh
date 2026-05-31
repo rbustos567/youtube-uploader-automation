@@ -170,17 +170,25 @@ systemctl start docker
 
 
 # ==============================================================================
-# 3. LOCAL FILESYSTEM STRUCTURE VERIFICATION
+# 3. LOCAL FILESYSTEM STRUCTURE & API TOKEN VERIFICATION
 # ==============================================================================
 echo ""
-echo "[3/4] Ensuring local filesystem integrity..."
+echo "[3/4] Ensuring local filesystem and API credentials integrity..."
 
+# Always ensure directory skeletons exist first
 mkdir -p data config jenkins_home
 echo "[OK] Data, Config, and Jenkins directory trees verified."
 
-if [ ! -f config/client_secrets.json ]; then
-    echo "[WARNING] 'config/client_secrets.json' target file not found."
-    echo "Remember to place your Google Cloud API OAuth2 credentials inside the './config' folder before launching automation jobs."
+# Strict rule validation for YouTube API Access
+if [ ! -f config/token.json ]; then
+    echo "----------------------------------------------------------------------"
+    echo "[FATAL] Missing YouTube OAuth2 API execution token!"
+    echo "The automation core requires 'config/token.json' to modify and upload videos."
+    echo "Please place your pre-generated token inside the './config' folder."
+    echo "----------------------------------------------------------------------"
+    exit 1
+else
+    echo "[OK] YouTube API authentication token 'config/token.json' detected."
 fi
 
 

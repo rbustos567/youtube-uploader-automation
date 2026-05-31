@@ -1,10 +1,7 @@
-# ignore dynamic deployment data
+# Local persistent automation folders
 data/
-jenkins_home/
-*.log
-__pycache__/
-.env
 
-# ignore local google API secrets and tokens
+# Secure Appliation Credentials, Environments & Tokens
+config/token.json
 config/client_secrets.json
-config/oauth2_token.json
+.env
