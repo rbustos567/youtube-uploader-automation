@@ -13,10 +13,16 @@ echo "===================================================="
 echo ""
 echo "[1/4] Setting up and validating environment configuration..."
 
-# Critical Check: Verify the existence of the dotfile template (.env.example)
-if [ ! -f ".env.example" ]; then
-    echo "[ERROR] Critical configuration template '.env.example' missing from repository."
+# Critical Check: Verify the existence of the template (env.example or .env.example)
+if [ ! -f ".env.example" ] && [ ! -f "env.example" ]; then
+    echo "[ERROR] Critical configuration template '.env.example' or 'env.example' missing from repository."
     exit 1
+fi
+
+# Standardize template name to .env.example if it was named env.example
+if [ ! -f ".env.example" ] && [ -f "env.example" ]; then
+    echo "[INFO] Standardizing template name from 'env.example' to '.env.example'..."
+    mv env.example .env.example
 fi
 
 # Generate local execution .env file if it does not exist
@@ -26,7 +32,6 @@ if [ ! -f ".env" ]; then
     
     # Dynamic deployment path discovery via PWD
     current_dir=$(pwd)
-    # Safely replace or append the deployment workspace path variable
     if grep -q "DEPLOY_WORKSPACE_PATH=" .env; then
         sed -i "s|DEPLOY_WORKSPACE_PATH=.*|DEPLOY_WORKSPACE_PATH=${current_dir}|" .env
     else
@@ -49,7 +54,6 @@ mkdir -p data/ollama_storage
 mkdir -p config
 
 # Enforce secure permission boundaries for Jenkins (UID 1000 standard)
-# This prevents premature container crashes due to "Permission Denied" errors
 chmod -R 755 data/
 chown -R 1000:1000 data/jenkins_home
 
@@ -67,8 +71,14 @@ fi
 echo ""
 echo "[3/4] Deploying isolated service layer mesh via Docker Compose..."
 
-# Source operational variables from local environment file
-export $(grep -v '^#' .env | xargs)
+# Safely source operational variables line by line, ignoring comments and blanks
+while IFS= read -r line || [ -n "$line" ]; do
+    [[ "$line" =~ ^[[:space:]]*# ]] && continue
+    [[ -z "$line" ]] && continue
+    if [[ "$line" == *=* ]]; then
+        export "$line"
+    fi
+done < .env
 
 # Execute build phase and run the decoupled microservice graph in detached mode
 if ! docker compose up -d --build; then
@@ -84,18 +94,22 @@ echo "[OK] Container mesh generated successfully."
 echo ""
 echo "[4/4] Verifying local LLM availability inside Ollama container..."
 
-# Dynamic container name resolution based on standard project folder prefixing
-# When 'container_name' is omitted, Compose names it: [folder_name]-[service_name]-1
-project_prefix=$(basename "$(pwd)" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-_]//g')
-ollama_container="${project_prefix}-ollama-service-1"
+# INFALLIBLE BUGFIX: Query Docker Compose directly to get the actual running container name
+echo "[INFO] Resolving Ollama container identity..."
+ollama_container=$(docker compose ps --format "table {{.Name}}" | grep "ollama-service" | xargs)
+
+if [ -z "${ollama_container}" ]; then
+    echo "[FATAL] Could not resolve Ollama container name. Is the service running?"
+    exit 1
+fi
 
 # Target LLM configuration fetched from .env (defaults to gemma2:9b if empty)
 target_model="${OLLAMA_MODEL_NAME:-gemma2:9b}"
+echo "[INFO] Target container resolved: ${ollama_container}"
 echo "[INFO] Target model configured: ${target_model}"
 
-# --- CRITICAL BUGFIX: Async API Gateway Wait-Loop ---
-# Prevents false positives by waiting for the Ollama engine to finish booting up
-echo "[INFO] Waiting for Ollama engine API layer to become responsive inside '${ollama_container}'..."
+# --- Async API Gateway Wait-Loop ---
+echo "[INFO] Waiting for Ollama engine API layer to become responsive..."
 max_retries=15
 counter=0
 
@@ -111,12 +125,10 @@ until docker exec "${ollama_container}" ollama list > /dev/null 2>&1; do
 done
 
 # --- Safe Model Validation and Hot Ingestion Sequence ---
-# Evaluates local model catalog safely now that the API is fully awake
 if docker exec "${ollama_container}" ollama list | grep -q "${target_model}"; then
     echo "[OK] Model '${target_model}' is already cached and ready to use."
 else
-    echo "[INFO] Model '${target_model}' not found locally. Initializing automated pull sequence..."
-    echo "[INFO] Please wait, downloading model weights inside the container (cached layers will be skipped)..."
+    echo "[INFO] Model '${target_model}' not found locally inside container. Initializing pull sequence..."
     
     if ! docker exec -it "${ollama_container}" ollama pull "${target_model}"; then
         echo "[ERROR] Failed to pull model weights for '${target_model}'."
