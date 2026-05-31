@@ -1,7 +1,7 @@
 #!/bin/bash
 
 echo "===================================================="
-echo " YOUTUBE AUTOMATION SYSTEM - ARCHITECTURE INSTALLER "
+echo "   YOUTUBE AUTOMATION SYSTEM - ARCHITECTURE INSTALLER "
 echo "===================================================="
 
 # ==============================================================================
@@ -19,11 +19,25 @@ if [ ! -f .env ]; then
         CURRENT_WORKSPACE_DIR=$(pwd)
         sed -i "s|DEPLOY_WORKSPACE_PATH=|DEPLOY_WORKSPACE_PATH=${CURRENT_WORKSPACE_DIR}|g" .env
         
-        echo "Please configure your interactive variables now:"
+        echo "----------------------------------------------------"
+        echo "   INTERACTIVE ENVIRONMENT INITIALIZATION           "
+        echo "----------------------------------------------------"
+        # Prompt for pipeline settings
         read -p "Enter your notification target email: " TARGET_USER_EMAIL
         sed -i "s|NOTIFICATION_EMAIL=user@example.com|NOTIFICATION_EMAIL=${TARGET_USER_EMAIL}|g" .env
         
-        echo "[SUCCESS] Localized .env file generated cleanly."
+        # Secure prompt for custom administrative credentials
+        read -p "Create your Jenkins Admin Username [admin]: " SECURE_ADMIN_USER
+        SECURE_ADMIN_USER=${SECURE_ADMIN_USER:-admin} # Fallback to 'admin' if user hits Enter
+        sed -i "s|JENKINS_INITIAL_ADMIN_USER=|JENKINS_INITIAL_ADMIN_USER=${SECURE_ADMIN_USER}|g" .env
+        
+        # Read password silently so it's not exposed on the terminal screen
+        read -s -p "Create your Jenkins Admin Password: " SECURE_ADMIN_PASS
+        echo "" # New line for terminal aesthetics
+        sed -i "s|JENKINS_INITIAL_ADMIN_PASSWORD=|JENKINS_INITIAL_ADMIN_PASSWORD=${SECURE_ADMIN_PASS}|g" .env
+        
+        echo "[SUCCESS] Localized secure .env file generated cleanly."
+        echo "----------------------------------------------------"
     else
         echo "[ERROR] Critical configuration template '.env.example' missing from repository."
         exit 1
@@ -54,6 +68,8 @@ validate_variable "OLLAMA_HOST_URL"
 validate_variable "OLLAMA_MODEL_NAME"
 validate_variable "SYSTEM_TIMEZONE"
 validate_variable "PIPELINE_CRON_SCHEDULE"
+validate_variable "JENKINS_INITIAL_ADMIN_USER"
+validate_variable "JENKINS_INITIAL_ADMIN_PASSWORD"
 validate_variable "DEPLOY_WORKSPACE_PATH"
 
 if [ "$MISSING_VARS" -ne 0 ]; then
@@ -136,8 +152,8 @@ if ! docker compose version &> /dev/null; then
             apt-get install -y docker-compose-plugin
             ;;
         dnf|yum)
-            $$PKG_MANAGER update -y
-            $$PKG_MANAGER install -y docker-compose-plugin
+            $PKG_MANAGER update -y
+            $PKG_MANAGER install -y docker-compose-plugin
             ;;
     esac
     echo "[OK] Docker Compose V2 plugin integrated successfully."
@@ -180,6 +196,7 @@ if [ $? -eq 0 ]; then
     echo "Verifying local LLM availability inside Ollama container..."
     echo "[INFO] Target model configured: ${OLLAMA_MODEL_NAME}"
     
+    # Grace period for the Ollama daemon process initialization inside the mesh
     sleep 3
     
     if docker exec ollama-service ollama list | grep -q "${OLLAMA_MODEL_NAME}"; then

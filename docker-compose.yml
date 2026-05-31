@@ -40,6 +40,10 @@ services:
       - TZ=${SYSTEM_TIMEZONE}
       - NOTIFICATION_EMAIL=${NOTIFICATION_EMAIL}
       - PIPELINE_CRON_SCHEDULE=${PIPELINE_CRON_SCHEDULE}
+      # Fully securized injection layer from .env context
+      - JAVA_OPTS=-Djenkins.install.runSetupWizard=false
+      - JENKINS_INITIAL_ADMIN_USER=${JENKINS_INITIAL_ADMIN_USER}
+      - JENKINS_INITIAL_ADMIN_PASSWORD=${JENKINS_INITIAL_ADMIN_PASSWORD
     volumes:
       - jenkins_data:/var/jenkins_home
       - /var/run/docker.sock:/var/run/docker.sock
