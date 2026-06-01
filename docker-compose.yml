@@ -1,9 +1,9 @@
 services:
   ollama-service:
     image: ollama/ollama:latest
-    container_name: ollama-service
+    #container_name: ollama-service
     ports:
-      - "11434:11434"
+      - "11435:11434"
     volumes:
       # Named volume ensures model weights persist separate from host system junk
       - ollama_data:/root/.ollama
@@ -13,7 +13,7 @@ services:
     build:
       context: ./uploader-service
       dockerfile: Dockerfile
-    container_name: youtube-uploader
+        #container_name: youtube-uploader
     tty: true
     stdin_open: true
     volumes:
@@ -31,33 +31,21 @@ services:
     build:
       context: ./jenkins
       dockerfile: Dockerfile
-    container_name: jenkins-service
-    user: root
     ports:
-      - "8080:8080"
-      - "50000:50000"
+      - "9090:8080"
     environment:
-      - TZ=${SYSTEM_TIMEZONE}
-      - NOTIFICATION_EMAIL=${NOTIFICATION_EMAIL}
-      - PIPELINE_CRON_SCHEDULE=${PIPELINE_CRON_SCHEDULE}
-      # Configuration as Code (JCasC) Dynamic Injection
-      - JAVA_OPTS=-Djenkins.install.runSetupWizard=false
-      - CASC_JENKINS_CONFIG=/var/jenkins_home/jenkins.yaml
       - JENKINS_INITIAL_ADMIN_USER=${JENKINS_INITIAL_ADMIN_USER}
       - JENKINS_INITIAL_ADMIN_PASSWORD=${JENKINS_INITIAL_ADMIN_PASSWORD}
+      - CASC_JENKINS_CONFIG=/var/jenkins_home/jenkins.yaml
       - JENKINS_PROJECT_NAME=${JENKINS_PROJECT_NAME}
       - JENKINS_GITHUB_REPO_URL=${JENKINS_GITHUB_REPO_URL}
     volumes:
       - jenkins_data:/var/jenkins_home
-      - /var/run/docker.sock:/var/run/docker.sock
-      # Mount the configuration template into the runtime execution directory
       - ./jenkins/jenkins.yaml:/var/jenkins_home/jenkins.yaml
-      - ${DEPLOY_WORKSPACE_PATH}/uploader-service:/app
-      - ${DEPLOY_WORKSPACE_PATH}/data:/app/data
-      - ${DEPLOY_WORKSPACE_PATH}/ollama:/app/ollama
+      - /var/run/docker.sock:/var/run/docker.sock
     group_add:
-      - "0" # Grants 'jenkins' user privilege escalation to interact with host Docker socket
-    restart: unless-stopped
+      - "0" 
+    restart: "no"
 
 volumes:
   jenkins_data:
