@@ -179,6 +179,24 @@ else
 fi
 
 # ---------------------------------------------------------
+# [5/5] Post-Deployment Security Hardening (Credentials Purge)
+# ---------------------------------------------------------
+echo ""
+echo "[5/5] Initiating security hardening sequence..."
+echo "[INFO] Waiting an extra 10 seconds to ensure Jenkins database hydration..."
+sleep 10
+
+# Wipe credentials from the host .env file to prevent cleartext exposure
+if [ -f ".env" ]; then
+    echo "[INFO] Purging initial setup credentials from local .env file..."
+    sed -i "s|JENKINS_INITIAL_ADMIN_USER=.*|JENKINS_INITIAL_ADMIN_USER=|" .env
+    sed -i "s|JENKINS_INITIAL_ADMIN_PASSWORD=.*|JENKINS_INITIAL_ADMIN_PASSWORD=|" .env
+    echo "[OK] Cleartext credentials successfully removed from the host layer."
+else
+    echo "[WARN] .env file not found. Skipping security purge."
+fi
+
+# ---------------------------------------------------------
 # Deployment Summary Output
 # ---------------------------------------------------------
 echo ""
