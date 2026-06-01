@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     triggers {
-        cron(env.PIPELINE_CRON_SCHEDULE ? "$(env.PIPELINE_CRON_SCHEDULE)" : '5 14 * * 6')
+        cron('5 14 * * 6')
     }
 
     options {
