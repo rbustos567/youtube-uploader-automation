@@ -1,12 +1,9 @@
 pipeline {
     agent any
 
-    // Evaluate and inject the cron trigger dynamically inside the properties initialization block
-    properties([
-        pipelineTriggers([
-            cron(env.PIPELINE_CRON_SCHEDULE)
-        ])
-    ])
+    triggers {
+        cron(env.PIPELINE_CRON_SCHEDULE)
+    }
 
     options {
         // Resource optimizations for Single Board Computer constraints
