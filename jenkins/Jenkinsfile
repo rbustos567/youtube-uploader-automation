@@ -85,7 +85,7 @@ pipeline {
 
                 //withCredentials([string(credentialsId: "gmail-app-password", variable: 'GMAIL_PWD')]) {
                 sh "docker exec -w /app youtube-uploader python send_email_summary.py --to_email '${destinationEmail}' --subject '${mailSubject}' --password '${mailPassword}' --body '${mailBody}'"
-                }
+               // }
             }
         }
     }
