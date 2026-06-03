@@ -64,7 +64,6 @@ pipeline {
             script {
                 // These environment variables will be populated by the installer / .env file
                 def destinationEmail = "${env.NOTIFICATION_EMAIL}"
-                def mailPassword = "${env.GMAIL_APP_PASSWORD}"
                 def buildStatus = currentBuild.result ?: 'SUCCESS'
                 
                 def mailSubject = ""
@@ -83,9 +82,9 @@ pipeline {
 
                 echo "Invoking isolated Python SMTP notification module..."
 
-                //withCredentials([string(credentialsId: "gmail-app-password", variable: 'GMAIL_PWD')]) {
-                sh "docker exec -w /app youtube-uploader python send_email_summary.py --to_email '${destinationEmail}' --subject '${mailSubject}' --password '${mailPassword}' --body '${mailBody}'"
-               // }
+                withCredentials([string(credentialsId: "$env.NOTIFICATION_CREDENTIAL_ID", variable: 'GMAIL_PWD')]) {
+                    sh "docker exec -w /app youtube-uploader python send_email_summary.py --to_email '${destinationEmail}' --subject '${mailSubject}' --password '${env.GMAIL_PWD}' --body '${mailBody}'"
+               }
             }
         }
     }
