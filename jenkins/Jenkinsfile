@@ -83,7 +83,7 @@ pipeline {
                 echo "Invoking isolated Python SMTP notification module..."
 
                 withCredentials([string(credentialsId: "${env.NOTIFICATION_CREDENTIAL_ID}", variable: 'GMAIL_PWD')]) {
-                    sh "docker exec -w /app youtube-uploader python send_email_summary.py --to_email '${destinationEmail}' --subject '${mailSubject}' --password '${env.GMAIL_PWD}' --body '${mailBody}'"
+                    sh "docker exec -w /app youtube-uploader python send_email_summary.py --to_email '${destinationEmail}' --subject '${mailSubject}' --password \$GMAIL_PWD --body '${mailBody}'"
                 }
             }
         }
