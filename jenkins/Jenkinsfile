@@ -12,6 +12,20 @@ pipeline {
     }
 
     stages {
+        stage('0. Initialize Environment') {
+            steps {
+                script {
+                    echo "Updating pipeline schedule dynamically to: ${env.PIPELINE_CRON_SCHEDULE}"
+                    // Reconfigure Jenkins cron using .env variable
+                    properties([
+                        pipelineTriggers([
+                            cron("${env.PIPELINE_CRON_SCHEDULE}")
+                        ])
+                    ])
+                }
+            }
+        }
+
         stage('1. Check & Enrich Metadata') {
             steps {
                 echo 'Checking local workspace for pending media queue entries...'

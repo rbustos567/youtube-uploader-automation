@@ -43,6 +43,9 @@ services:
       - JENKINS_PROJECT_NAME=${JENKINS_PROJECT_NAME}
       - JENKINS_GITHUB_REPO_URL=${JENKINS_GITHUB_REPO_URL}
       - GMAIL_APP_PASSWORD=${GMAIL_APP_PASSWORD}
+      - TZ=${SYSTEM_TIMEZONE}
+      - JAVA_OPTS=-Duser.timezone=${SYSTEM_TIMEZONE}
+      - PIPELINE_CRON_SCHEDULE=${PIPELINE_CRON_SCHEDULE}
     volumes:
       - jenkins_data:/var/jenkins_home
       - ./jenkins/jenkins.yaml:/var/jenkins_home/jenkins.yaml
