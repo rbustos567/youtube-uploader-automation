@@ -74,10 +74,40 @@ while [ -z "$input_password" ]; do
     fi
 done
 
+# NEW: 4. Capture Gmail App Password for SMTP Alerts (masking characters for security)
+unset input_gmail_password
+gmail_prompt="Enter Gmail App Password (16-character token): "
+while [ -z "$input_gmail_password" ]; do
+    read -s -p "$gmail_prompt" input_gmail_password
+    echo "" # Append a newline after secure text input hidden state
+    if [ -z "$input_gmail_password" ]; then
+        echo "[WARN] Gmail App Password cannot be empty."
+    fi
+done
+
+# NEW: 5. Capture Custom Jenkins Credential ID for SMTP
+read -p "Enter Jenkins Credential ID for SMTP [default: gmail-app-password]: " input_cred_id
+if [ -z "$input_cred_id" ]; then
+    input_cred_id="gmail-app-password"
+fi
+
 # Surgical variable replacement inside the local execution .env file via sed
 sed -i "s|NOTIFICATION_EMAIL=.*|NOTIFICATION_EMAIL=${input_email}|" .env
 sed -i "s|JENKINS_INITIAL_ADMIN_USER=.*|JENKINS_INITIAL_ADMIN_USER=${input_user}|" .env
 sed -i "s|JENKINS_INITIAL_ADMIN_PASSWORD=.*|JENKINS_INITIAL_ADMIN_PASSWORD=${input_password}|" .env
+
+# NEW: Inject Gmail App Password temporarily into the local execution .env file
+if grep -q "GMAIL_APP_PASSWORD=" .env; then
+    sed -i "s|GMAIL_APP_PASSWORD=.*|GMAIL_APP_PASSWORD=${input_gmail_password}|" .env
+else
+    echo "GMAIL_APP_PASSWORD=${input_gmail_password}" >> .env
+fi
+
+if grep -q "NOTIFICATION_CREDENTIAL_ID=" .env; then
+    sed -i "s|NOTIFICATION_CREDENTIAL_ID=.*|NOTIFICATION_CREDENTIAL_ID=${input_cred_id}|" .env
+else
+    echo "NOTIFICATION_CREDENTIAL_ID=${input_cred_id}" >> .env
+fi
 
 echo "[OK] Configuration secrets successfully injected into .env file."
 echo "---------------------------------------------------------"
@@ -186,12 +216,17 @@ echo "[5/5] Initiating security hardening sequence..."
 echo "[INFO] Waiting an extra 10 seconds to ensure Jenkins database hydration..."
 sleep 10
 
-# Wipe credentials from the host .env file to prevent cleartext exposure
+# NEW / MODIFIED: Wipe ALL authentication credentials, including the temporal SMTP secret
 if [ -f ".env" ]; then
     echo "[INFO] Purging initial setup credentials from local .env file..."
     sed -i "s|JENKINS_INITIAL_ADMIN_USER=.*|JENKINS_INITIAL_ADMIN_USER=|" .env
     sed -i "s|JENKINS_INITIAL_ADMIN_PASSWORD=.*|JENKINS_INITIAL_ADMIN_PASSWORD=|" .env
-    echo "[OK] Cleartext credentials successfully removed from the host layer."
+    
+    # Surgical removal of the cleartext Gmail password from the file
+    sed -i "s|GMAIL_APP_PASSWORD=.*|GMAIL_APP_PASSWORD=|" .env
+    # NOTE: NOTIFICATION_CREDENTIAL_ID is preserved so Jenkinsfile knows the ID on future runs
+    
+    echo "[OK] Cleartext credentials and SMTP tokens successfully removed from the host layer."
 else
     echo "[WARN] .env file not found. Skipping security purge."
 fi

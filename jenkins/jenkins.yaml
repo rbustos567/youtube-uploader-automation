@@ -11,21 +11,35 @@ unclassified:
   location:
     url: "http://localhost:8080/"
 
+# ==============================================================================
+# ESTRUCTURA NATIVA DIRECTA PARA JENKINS PLAIN-CREDENTIALS
+# ==============================================================================
+credentials:
+  system:
+    domainCredentials:
+      - credentials:
+          - string:
+              scope: GLOBAL
+              id: "${NOTIFICATION_CREDENTIAL_ID}"
+              description: "Google Application Password for SMTP alerts"
+              secret: "${GMAIL_APP_PASSWORD}"
+
 # GitOps Engine: This block provisions your pipeline job automatically on startup
-#jobs:
-#  - script: >
-#      pipelineJob("${JENKINS_PROJECT_NAME}") {
-#        definition {
-#          cpsScm {
-#            scm {
-#              git {
-#                remote { 
-#                  url("${JENKINS_GITHUB_REPO_URL}") 
-#                }
-#                branches('main')
-#              }
-#            }
-#            scriptPath('jenkins/Jenkinsfile')
-#          }
-#        }
-#      }
+jobs:
+  - script: >
+      pipelineJob("${JENKINS_PROJECT_NAME}") {
+        description("Automated high-definition video processing and YouTube deployment pipeline.")
+        definition {
+          cpsScm {
+            scm {
+              git {
+                remote {
+                  url("${JENKINS_GITHUB_REPO_URL}")
+                }
+                branches('main')
+              }
+            }
+            scriptPath('jenkins/Jenkinsfile')
+          }
+        }
+      }
