@@ -73,28 +73,34 @@ pipeline {
         always {
             script {
                 // These environment variables will be populated by the installer / .env file
-                def destinationEmail = "${env.NOTIFICATION_EMAIL}"
+                def destinationEmail = "${env.NOTIFICATION_EMAIL}".trim()
+                def credentialId = "${env.NOTIFICATION_CREDENTIAL_ID}".trim()
                 def buildStatus = currentBuild.result ?: 'SUCCESS'
                 
-                def mailSubject = ""
-                def mailBody = ""
-                
-                if (env.SKIP_UPLOAD == 'true') {
-                    mailSubject = "Jenkins: YouTube Automation - No Uploads Required (Success)"
-                    mailBody = "Automation state: Idle. The local queue ledger contains zero pending assets."
-                } else if (env.UPLOAD_SUMMARY) {
-                    mailSubject = "Jenkins: YouTube Automation Pipeline Status - ${buildStatus}"
-                    mailBody = "Find below the automation routine final summary report:\n\n${env.UPLOAD_SUMMARY}\n\nReview upstream logs at: ${env.BUILD_URL}"
+                if (destinationEmail == "" || destinationEmail == "null" || destinationEmail == "\${NOTIFICATION_EMAIL}" || 
+                    credentialId == "" || credentialId == "null" || credentialId == "\${NOTIFICATION_CREDENTIAL_ID}") {
+                    echo "[INFO] Notification features are disabled (Missing Email or Credential ID). Skipping SMTP routine."
                 } else {
-                    mailSubject = "Jenkins: YouTube Automation Pipeline - Job Failure Notification"
-                    mailBody = "The pipeline lifecycle terminated prematurely with status [${buildStatus}]. Diagnostic summary unavailable."
+                    def mailSubject = ""
+                    def mailBody = ""
+                
+                    if (env.SKIP_UPLOAD == 'true') {
+                        mailSubject = "Jenkins: YouTube Automation - No Uploads Required (Success)"
+                        mailBody = "Automation state: Idle. The local queue ledger contains zero pending assets."
+                    } else if (env.UPLOAD_SUMMARY) {
+                        mailSubject = "Jenkins: YouTube Automation Pipeline Status - ${buildStatus}"
+                        mailBody = "Find below the automation routine final summary report:\n\n${env.UPLOAD_SUMMARY}\n\nReview upstream logs at: ${env.BUILD_URL}"
+                    } else {
+                        mailSubject = "Jenkins: YouTube Automation Pipeline - Job Failure Notification"
+                        mailBody = "The pipeline lifecycle terminated prematurely with status [${buildStatus}]. Diagnostic summary unavailable."
+                    }
+
+                    echo "Invoking isolated Python SMTP notification module..."
+
+                    withCredentials([string(credentialsId: credentialId, variable: 'GMAIL_PWD')]) {
+                        sh "docker exec -w /app youtube-uploader python send_email_summary.py --to_email '${destinationEmail}' --subject '${mailSubject}' --password '${env.GMAIL_PWD}' --body '${mailBody}'"
+                   }
                 }
-
-                echo "Invoking isolated Python SMTP notification module..."
-
-                withCredentials([string(credentialsId: "$env.NOTIFICATION_CREDENTIAL_ID", variable: 'GMAIL_PWD')]) {
-                    sh "docker exec -w /app youtube-uploader python send_email_summary.py --to_email '${destinationEmail}' --subject '${mailSubject}' --password '${env.GMAIL_PWD}' --body '${mailBody}'"
-               }
             }
         }
     }
