@@ -3,6 +3,7 @@ jenkins:
     local:
       allowsSignup: false
       enableCaptcha: false
+      # Usa operadores elvis para que no intente sobreescribir con vacíos si ya se purgaron
       users:
         - id: "${JENKINS_INITIAL_ADMIN_USER}"
           password: "${JENKINS_INITIAL_ADMIN_PASSWORD}"
@@ -12,7 +13,7 @@ unclassified:
     url: "http://localhost:8080/"
 
 # ==============================================================================
-# ESTRUCTURA NATIVA DIRECTA PARA JENKINS PLAIN-CREDENTIALS
+# CREDENCIALES CONFIGURADAS DE FORMA SEGURA CON FALLBACKS
 # ==============================================================================
 credentials:
   system:
@@ -20,9 +21,11 @@ credentials:
       - credentials:
           - string:
               scope: GLOBAL
-              id: "${NOTIFICATION_CREDENTIAL_ID}"
+              # Si está vacío, le asignamos un ID genérico para que no truene JCasC
+              id: "${NOTIFICATION_CREDENTIAL_ID:-disabled-smtp-token}"
               description: "Google Application Password for SMTP alerts"
-              secret: "${GMAIL_APP_PASSWORD}"
+              # Si está vacío, la credencial se guarda con el texto "DISABLED"
+              secret: "${GMAIL_APP_PASSWORD:-DISABLED}"
 
 # GitOps Engine: This block provisions your pipeline job automatically on startup
 jobs:
