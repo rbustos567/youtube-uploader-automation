@@ -7,6 +7,7 @@ services:
     volumes:
       - ${DEPLOY_WORKSPACE_PATH}/data/ollama_storage:/root/.ollama
     restart: unless-stopped
+    #restart: "no"
 
   youtube-uploader:
     build:
@@ -24,6 +25,7 @@ services:
       - PYTHONUNBUFFERED=1
       - OLLAMA_HOST=http://ollama-service:11434
     restart: unless-stopped
+    #restart: "no"
 
   jenkins-service:
     build:
@@ -52,6 +54,7 @@ services:
     group_add:
       - 0
     restart: unless-stopped
+    #restart: "no"
 
 volumes:
   jenkins_data:
