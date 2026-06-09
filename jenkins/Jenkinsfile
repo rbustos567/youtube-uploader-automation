@@ -1,23 +1,29 @@
 pipeline {
     agent any
 
+    environment {
+        SYSTEM_TIMEZONE = 'America/Monterrey'
+    }
+
     options {
         // Resource optimizations for Single Board Computer constraints
         disableConcurrentBuilds()
         buildDiscarder(logRotator(numToKeepStr: '10'))
     }
 
+    triggers {
+        cron(env.PIPELINE_CRON_SCHEDULE ? env.PIPELINE_CRON_SCHEDULE : "")
+    }
+
     stages {
         stage('0. Initialize Environment') {
             steps {
                 script {
-                    echo "Updating pipeline schedule dynamically to: ${env.PIPELINE_CRON_SCHEDULE}"
-                    // Reconfigure Jenkins cron using .env variable
-                    properties([
-                        pipelineTriggers([
-                            cron("${env.PIPELINE_CRON_SCHEDULE}")
-                        ])
-                    ])
+                    if (env.PIPELINE_CRON_SCHEDULE) {
+                        echo "[INFO] Current environment pipeline schedule state: ${env.PIPELINE_CRON_SCHEDULE]"
+                    } else {
+                        echo "[INFO] No cron schedule defined in environment. Running in manual mode."
+                    }
                 }
             }
         }
