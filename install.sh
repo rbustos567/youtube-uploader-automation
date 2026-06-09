@@ -8,10 +8,10 @@ echo "    YOUTUBE AUTOMATION SYSTEM - ARCHITECTURE INSTALLER"
 echo "===================================================="
 
 # ---------------------------------------------------------
-# [1/4] Environment Pre-flight Checks and Validations
+# [1/5] Environment Pre-flight Checks and Validations
 # ---------------------------------------------------------
 echo ""
-echo "[1/4] Setting up and validating environment configuration..."
+echo "[1/5] Setting up and validating environment configuration..."
 
 # Critical Check: Verify the existence of the template (env.example or .env.example)
 if [ ! -f ".env.example" ] && [ ! -f "env.example" ]; then
@@ -49,21 +49,43 @@ echo ""
 echo ">>> CREDENTIALS & NOTIFICATIONS CONFIGURATION <<<"
 echo "Please enter the required details to populate your .env configuration:"
 
-# 1. Capture Notification Email
-read -p "Enter notification email address: " input_email
-while [ -z "$input_email" ]; do
-    echo "[WARN] Notification email cannot be empty."
-    read -p "Enter notification email address: " input_email
-done
+# 1. Capture Notification Email (Modified: Optional, no while-loop constraint)
+read -p "Enter notification email address (Leave blank to disable email alerts): " input_email
 
-# 2. Capture Jenkins Initial Admin User
+# Initialize dependent SMTP variables as empty strings by default
+input_gmail_password=""
+input_cred_id=""
+
+# Request SMTP secrets ONLY if the user explicitly provided an email address
+if [ -n "$input_email" ]; then
+    # NEW: 4. Capture Gmail App Password for SMTP Alerts (masking characters for security)
+    unset input_gmail_password
+    gmail_prompt="Enter Gmail App Password (16-character token): "
+    while [ -z "$input_gmail_password" ]; do
+        read -s -p "$gmail_prompt" input_gmail_password
+        echo "" # Append a newline after secure text input hidden state
+        if [ -z "$input_gmail_password" ]; then
+            echo "[WARN] Gmail App Password cannot be empty when notification email is active."
+        fi
+    done
+
+    # NEW: 5. Capture Custom Jenkins Credential ID for SMTP
+    read -p "Enter Jenkins Credential ID for SMTP [default: gmail-app-password]: " input_cred_id
+    if [ -z "$input_cred_id" ]; then
+        input_cred_id="gmail-app-password"
+    fi
+else
+    echo "[INFO] No email provided. Skipping SMTP and credential identification queries."
+fi
+
+# 2. Capture Jenkins Initial Admin User (Unchanged)
 read -p "Enter Jenkins Initial Admin Username: " input_user
 while [ -z "$input_user" ]; do
     echo "[WARN] Username cannot be empty."
     read -p "Enter Jenkins Initial Admin Username: " input_user
 done
 
-# 3. Capture Jenkins Initial Admin Password (masking characters for security)
+# 3. Capture Jenkins Initial Admin Password (masking characters for security) (Unchanged)
 unset input_password
 prompt="Enter Jenkins Initial Admin Password: "
 while [ -z "$input_password" ]; do
@@ -73,23 +95,6 @@ while [ -z "$input_password" ]; do
         echo "[WARN] Password cannot be empty."
     fi
 done
-
-# NEW: 4. Capture Gmail App Password for SMTP Alerts (masking characters for security)
-unset input_gmail_password
-gmail_prompt="Enter Gmail App Password (16-character token): "
-while [ -z "$input_gmail_password" ]; do
-    read -s -p "$gmail_prompt" input_gmail_password
-    echo "" # Append a newline after secure text input hidden state
-    if [ -z "$input_gmail_password" ]; then
-        echo "[WARN] Gmail App Password cannot be empty."
-    fi
-done
-
-# NEW: 5. Capture Custom Jenkins Credential ID for SMTP
-read -p "Enter Jenkins Credential ID for SMTP [default: gmail-app-password]: " input_cred_id
-if [ -z "$input_cred_id" ]; then
-    input_cred_id="gmail-app-password"
-fi
 
 # Surgical variable replacement inside the local execution .env file via sed
 sed -i "s|NOTIFICATION_EMAIL=.*|NOTIFICATION_EMAIL=${input_email}|" .env
@@ -112,11 +117,12 @@ fi
 echo "[OK] Configuration secrets successfully injected into .env file."
 echo "---------------------------------------------------------"
 
+
 # ---------------------------------------------------------
-# [2/4] Directory Infrastructure & Runtime Dependencies
+# [2/5] Directory Infrastructure & Runtime Dependencies
 # ---------------------------------------------------------
 echo ""
-echo "[2/4] Establishing local data persistence layers..."
+echo "[2/5] Establishing local data persistence layers..."
 
 # Create standard host volume bindings for container persistence
 mkdir -p data/jenkins_home
@@ -136,10 +142,10 @@ else
 fi
 
 # ---------------------------------------------------------
-# [3/4] Container Mesh Orchestration (Docker Compose)
+# [3/5] Container Mesh Orchestration (Docker Compose)
 # ---------------------------------------------------------
 echo ""
-echo "[3/4] Deploying isolated service layer mesh via Docker Compose..."
+echo "[3/5] Deploying isolated service layer mesh via Docker Compose..."
 
 # Safely source operational variables line by line, ignoring comments and blanks
 while IFS= read -r line || [ -n "$line" ]; do
@@ -159,10 +165,10 @@ fi
 echo "[OK] Container mesh generated successfully."
 
 # ---------------------------------------------------------
-# [4/4] Asynchronous Health Check & Model Ingestion (Ollama)
+# [4/5] Asynchronous Health Check & Model Ingestion (Ollama)
 # ---------------------------------------------------------
 echo ""
-echo "[4/4] Verifying local LLM availability inside Ollama container..."
+echo "[4/5] Verifying local LLM availability inside Ollama container..."
 
 # INFALLIBLE BUGFIX: Query Docker Compose directly to get the actual running container name
 echo "[INFO] Resolving Ollama container identity..."
