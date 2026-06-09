@@ -5,7 +5,6 @@ services:
     ports:
       - "11435:11434"
     volumes:
-      # Named volume ensures model weights persist separate from host system junk
       - ${DEPLOY_WORKSPACE_PATH}/data/ollama_storage:/root/.ollama
     restart: unless-stopped
 
@@ -24,7 +23,7 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - OLLAMA_HOST=http://ollama-service:11434
-    restart: "no"
+    restart: unless-stopped
 
   jenkins-service:
     build:
@@ -51,8 +50,8 @@ services:
       - ./jenkins/jenkins.yaml:/var/jenkins_home/jenkins.yaml
       - /var/run/docker.sock:/var/run/docker.sock
     group_add:
-      - 0 
-    restart: "no"
+      - 0
+    restart: unless-stopped
 
 volumes:
   jenkins_data:

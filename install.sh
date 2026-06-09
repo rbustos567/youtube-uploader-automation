@@ -231,6 +231,17 @@ else
     echo "[WARN] .env file not found. Skipping security purge."
 fi
 
+# NEW: Surgical removal of administrative variables from docker-compose.yml
+if [ -f "docker-compose.yml" ]; then
+    echo "[INFO] Commenting out initial admin environment variables from docker-compose.yml..."
+    # Places a '#' at the beginning of lines containing these variables to disable them safely
+    sed -i 's|^\([[:space:]]*- JENKINS_INITIAL_ADMIN_USER\)|#\1|' docker-compose.yml
+    sed -i 's|^\([[:space:]]*- JENKINS_INITIAL_ADMIN_PASSWORD\)|#\1|' docker-compose.yml
+    echo "[OK] docker-compose.yml sanitized and documented successfully."
+else
+    echo "[WARN] docker-compose.yml not found. Skipping file infrastructure purge."
+fi
+
 # ---------------------------------------------------------
 # Deployment Summary Output
 # ---------------------------------------------------------
