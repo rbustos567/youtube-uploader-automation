@@ -12,7 +12,7 @@ pipeline {
     }
 
     triggers {
-        cron(env.PIPELINE_CRON_SCHEDULE ? env.PIPELINE_CRON_SCHEDULE : "")
+        cron(env.PIPELINE_CRON_SCHEDULE ?: '')
     }
 
     stages {
