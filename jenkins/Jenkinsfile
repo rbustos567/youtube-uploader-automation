@@ -1,35 +1,23 @@
 pipeline {
     agent any
 
-    environment {
-        SYSTEM_TIMEZONE = 'America/Monterrey'
-    }
-
     options {
+        // Resource optimizations for Single Board Computer constraints
         disableConcurrentBuilds()
         buildDiscarder(logRotator(numToKeepStr: '10'))
     }
-
-    // >>> REGLA 1: ELIMINA POR COMPLETO EL BLOQUE TRIGGERS DE AQUÍ <<<
 
     stages {
         stage('0. Initialize Environment') {
             steps {
                 script {
-                    // Extraemos la variable del contenedor de forma segura
-                    def cronSchedule = env.PIPELINE_CRON_SCHEDULE ? env.PIPELINE_CRON_SCHEDULE.trim() : ""
-
-                    if (cronSchedule != "") {
-                        echo "[INFO] Dynamically anchoring system CRON trigger: ${cronSchedule}"
-                        
-                        // SINTAXIS DEFINITIVA: Aprobada por el Sandbox y persistente en disco
-                        properties([
-                            pipelineTriggers([cron(cronSchedule)])
+                    echo "Updating pipeline schedule dynamically to: ${env.PIPELINE_CRON_SCHEDULE}"
+                    // Reconfigure Jenkins cron using .env variable
+                    properties([
+                        pipelineTriggers([
+                            cron("${env.PIPELINE_CRON_SCHEDULE}")
                         ])
-                    } else {
-                        echo "[INFO] No cron schedule defined. Running in manual mode."
-                        properties([pipelineTriggers([])])
-                    }
+                    ])
                 }
             }
         }
@@ -38,11 +26,12 @@ pipeline {
             steps {
                 echo 'Checking local workspace for pending media queue entries...'
                 script {
+                    // Execute metadata pre-processing using the container name and generic working directory
                     int statusCode = sh(
                         script: "docker exec -w /app youtube-uploader python enrich_queue.py --input ./data/general_queue.json --output ./data/general_queue.json --prompt-file ./ollama/system_prompt.txt --ollama ollama-service:11434 --model gemma2:9b",
                         returnStatus: true
                     )
-
+                    
                     if (statusCode == 99) {
                         echo '[JENKINS INFO] All records processed. Skipping upload stage.'
                         env.SKIP_UPLOAD = 'true'
@@ -56,8 +45,8 @@ pipeline {
         }
 
         stage('2. YouTube API Upload') {
-            when {
-                environment name: 'SKIP_UPLOAD', value: 'false'
+            when { 
+                environment name: 'SKIP_UPLOAD', value: 'false' 
             }
             steps {
                 echo 'Initializing batch upload routine...'
@@ -66,9 +55,9 @@ pipeline {
                         script: "docker exec -w /app youtube-uploader python batch_uploader.py --file ./data/general_queue.json",
                         returnStdout: true
                     ).trim()
-
-                    echo rawLog
-
+                    
+                    echo rawLog 
+                    
                     def matcher = rawLog =~ /(?s)(QUEUE SUMMARY REPORT.*)/
                     if (matcher.find()) {
                         env.UPLOAD_SUMMARY = matcher[0][1]
@@ -79,21 +68,22 @@ pipeline {
             }
         }
     }
-
+    
     post {
         always {
             script {
+                // These environment variables will be populated by the installer / .env file
                 def destinationEmail = "${env.NOTIFICATION_EMAIL}".trim()
                 def credentialId = "${env.NOTIFICATION_CREDENTIAL_ID}".trim()
                 def buildStatus = currentBuild.result ?: 'SUCCESS'
-
-                if (destinationEmail == "" || destinationEmail == "null" || destinationEmail == "\${NOTIFICATION_EMAIL}" ||
+                
+                if (destinationEmail == "" || destinationEmail == "null" || destinationEmail == "\${NOTIFICATION_EMAIL}" || 
                     credentialId == "" || credentialId == "null" || credentialId == "\${NOTIFICATION_CREDENTIAL_ID}") {
                     echo "[INFO] Notification features are disabled (Missing Email or Credential ID). Skipping SMTP routine."
                 } else {
                     def mailSubject = ""
                     def mailBody = ""
-
+                
                     if (env.SKIP_UPLOAD == 'true') {
                         mailSubject = "Jenkins: YouTube Automation - No Uploads Required (Success)"
                         mailBody = "Automation state: Idle. The local queue ledger contains zero pending assets."
@@ -109,7 +99,7 @@ pipeline {
 
                     withCredentials([string(credentialsId: credentialId, variable: 'GMAIL_PWD')]) {
                         sh "docker exec -w /app youtube-uploader python send_email_summary.py --to_email '${destinationEmail}' --subject '${mailSubject}' --password '${env.GMAIL_PWD}' --body '${mailBody}'"
-                    }
+                   }
                 }
             }
         }
