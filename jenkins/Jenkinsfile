@@ -6,29 +6,28 @@ pipeline {
     }
 
     options {
-        // Resource optimizations for Single Board Computer constraints
         disableConcurrentBuilds()
         buildDiscarder(logRotator(numToKeepStr: '10'))
     }
 
+    // >>> SINTAXIS DECLARATIVA ESTÁNDAR COMPATIBLE CON EL SANDBOX <<<
+    // Al usar env.VARIABLE dentro de un string de doble comilla, Jenkins lo procesa de forma nativa
     triggers {
-        cron(java.lang.System.getenv('PIPELINE_CRON_SCHEDULE') ?: '')
+        cron("${env.PIPELINE_CRON_SCHEDULE}")
     }
 
     stages {
         stage('0. Initialize Environment') {
             steps {
                 script {
-                    def currentCron = java.lang.System.getenv('PIPELINE_CRON_SCHEDULE') ?: ""
-                    if (currentCron != "") {
-                        echo "[INFO] Current environment pipeline schedule state: ${currentCron}"
+                    if (env.PIPELINE_CRON_SCHEDULE) {
+                        echo "[INFO] Jenkins engine successfully bound to automated cron: ${env.PIPELINE_CRON_SCHEDULE}"
                     } else {
-                        echo "[INFO] No cron schedule defined in environment. Running in manuel mode."
+                        echo "[WARN] Trigger variable detected as empty inside container context."
                     }
                 }
             }
         }
-
         stage('1. Check & Enrich Metadata') {
             steps {
                 echo 'Checking local workspace for pending media queue entries...'
