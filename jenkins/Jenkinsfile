@@ -11,28 +11,19 @@ pipeline {
         buildDiscarder(logRotator(numToKeepStr: '10'))
     }
 
+    triggers {
+        cron(java.lang.System.getenv('PIPELINE_CRON_SCHEDULE') ?: '')
+    }
+
     stages {
         stage('0. Initialize Environment') {
             steps {
                 script {
-                    // Leemos la variable cruda del entorno limpia de espacios
-                    def cronInput = env.PIPELINE_CRON_SCHEDULE ? env.PIPELINE_CRON_SCHEDULE.trim() : ""
-
-                    if (cronInput != "") {
-                        echo "[INFO] Securing hardware-level CRON trigger: ${cronInput}"
-                        
-                        // SOLUCIÓN CLAVE: Registra el trigger directo en el core de las propiedades del Job actual
-                        currentBuild.rawBuild.project.addTrigger(new hudson.triggers.TimerTrigger(cronInput))
-                        currentBuild.rawBuild.project.save() // Fuerza a Jenkins a guardar el config.xml en disco inmediatamente
+                    def currentCron = java.lang.System.getenv('PIPELINE_CRON_SCHEDULE') ?: ""
+                    if (currentCron != "") {
+                        echo "[INFO] Current environment pipeline schedule state: ${currentCron}"
                     } else {
-                        echo "[INFO] No cron schedule defined in environment. Removing existing triggers."
-                        def existingTriggers = currentBuild.rawBuild.project.getTriggers()
-                        for (trigger in existingTriggers) {
-                            if (trigger.value instanceof hudson.triggers.TimerTrigger) {
-                                currentBuild.rawBuild.project.removeTrigger(trigger.value.getDescriptor())
-                            }
-                        }
-                        currentBuild.rawBuild.project.save()
+                        echo "[INFO] No cron schedule defined in environment. Running in manuel mode."
                     }
                 }
             }
