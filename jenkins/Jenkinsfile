@@ -10,24 +10,30 @@ pipeline {
         buildDiscarder(logRotator(numToKeepStr: '10'))
     }
 
-    // >>> SINTAXIS DECLARATIVA ESTÁNDAR COMPATIBLE CON EL SANDBOX <<<
-    // Al usar env.VARIABLE dentro de un string de doble comilla, Jenkins lo procesa de forma nativa
-    triggers {
-        cron("${env.PIPELINE_CRON_SCHEDULE}")
-    }
+    // >>> REGLA 1: ELIMINA POR COMPLETO EL BLOQUE TRIGGERS DE AQUÍ <<<
 
     stages {
         stage('0. Initialize Environment') {
             steps {
                 script {
-                    if (env.PIPELINE_CRON_SCHEDULE) {
-                        echo "[INFO] Jenkins engine successfully bound to automated cron: ${env.PIPELINE_CRON_SCHEDULE}"
+                    // Extraemos la variable del contenedor de forma segura
+                    def cronSchedule = env.PIPELINE_CRON_SCHEDULE ? env.PIPELINE_CRON_SCHEDULE.trim() : ""
+
+                    if (cronSchedule != "") {
+                        echo "[INFO] Dynamically anchoring system CRON trigger: ${cronSchedule}"
+                        
+                        // SINTAXIS DEFINITIVA: Aprobada por el Sandbox y persistente en disco
+                        properties([
+                            pipelineTriggers([cron(cronSchedule)])
+                        ])
                     } else {
-                        echo "[WARN] Trigger variable detected as empty inside container context."
+                        echo "[INFO] No cron schedule defined. Running in manual mode."
+                        properties([pipelineTriggers([])])
                     }
                 }
             }
         }
+
         stage('1. Check & Enrich Metadata') {
             steps {
                 echo 'Checking local workspace for pending media queue entries...'
